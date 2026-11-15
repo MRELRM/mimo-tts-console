@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MiMo V2.5-TTS 三合一测试台</title>
+<meta name="description" content="本地运行的 MiMo V2.5-TTS 测试台：语音生成 / 音色设计 / 音色克隆三合一，API Key 仅保存在服务端。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%234f8cff'/%3E%3Cpath d='M28 14v26a8 8 0 1 1-4-6.9V20l20-5v18a8 8 0 1 1-4-6.9V19z' fill='%23ffffff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <div class="title-wrap">
+      <h1>MiMo V2.5-TTS 三合一测试台</h1>
+      <p class="subtitle">语音生成 · 音色设计 · 音色克隆 ｜ 本地零依赖 Node 代理 · API Key 仅存于服务端 .env</p>
+    </div>
+    <div id="healthBar" class="health-bar pending"><span class="dot dot-gray"></span><span id="healthText">正在检查本地服务状态…</span></div>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="切换 TTS 模型">
+  <button type="button" class="tab" role="tab" aria-selected="false" data-model="mimo-v2.5-tts">
+    <span class="tab-index">01</span><span class="tab-name">语音生成</span><span class="tab-model">mimo-v2.5-tts</span>
+  </button>
+  <button type="button" class="tab" role="tab" aria-selected="false" data-model="mimo-v2.5-tts-voicedesign">
+    <span class="tab-index">02</span><span class="tab-name">音色设计</span><span class="tab-model">mimo-v2.5-tts-voicedesign</span>
+  </button>
+  <button type="button" class="tab" role="tab" aria-selected="false" data-model="mimo-v2.5-tts-voiceclone">
+    <span class="tab-index">03</span><span class="tab-name">音色克隆</span><span class="tab-model">mimo-v2.5-tts-voiceclone</span>
+  </button>
+</nav>
+
+<p class="model-desc" id="modelDesc"></p>
+
+<main class="layout">
+
+  <!-- ============ 参数配置 ============ -->
+  <section class="card">
+    <h2 class="card-title">参数配置</h2>
+
+    <div class="field" id="fieldText">
+      <label for="textInput" id="textLabel">待合成正文 <span class="req">*</span><span class="field-note" id="textNote">（必填，放入 assistant 消息）</span></label>
+      <textarea id="textInput" rows="4" placeholder="输入要让模型朗读的正文…">你好，欢迎使用 MiMo V2.5-TTS 三合一测试台。这是一段预置的测试文本，点击下方按钮即可试听语音合成效果。</textarea>
+      <div class="char-count" id="charCount">0 字符</div>
+    </div>
+
+    <div class="field" id="fieldUser">
+      <label for="userInput" id="userLabel">风格 / 语气指令 <span class="field-note">（可选，放入 user 消息）</span></label>
+      <textarea id="userInput" rows="2" placeholder="例如：用轻快愉悦的语气播报"></textarea>
+    </div>
+
+    <div class="field-row">
+      <div class="field" id="fieldVoice">
+        <label for="voiceSelect">预置音色（audio.voice）</label>
+        <select id="voiceSelect">
+          <optgroup label="中文">
+            <option value="冰糖">冰糖 · 中文 · 女性</option>
+            <option value="茉莉">茉莉 · 中文 · 女性</option>
+            <option value="苏打">苏打 · 中文 · 男性</option>
+            <option value="白桦">白桦 · 中文 · 男性</option>
+          </optgroup>
+          <optgroup label="英文">
+            <option value="Mia">Mia · 英文 · 女性</option>
+            <option value="Chloe">Chloe · 英文 · 女性</option>
+          </optgroup>
+          <optgroup label="默认">
+            <option value="mimo_default">MiMo-默认（mimo_default，因集群而异）</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="field" id="fieldFormat">
+        <label for="formatSelect">输出格式（audio.format）</label>
+        <select id="formatSelect">
+          <option value="wav">wav · 可直接播放</option>
+          <option value="mp3">mp3 · 可直接播放</option>
+          <option value="pcm">pcm · 仅下载（流式拼接用）</option>
+          <option value="pcm16">pcm16 · 仅下载（流式拼接用）</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field field-check" id="fieldOptimize" hidden>
+      <input type="checkbox" id="optimizeCheck">
+      <label for="optimizeCheck">audio.optimize_text_preview = true：由模型自动润色播报文本<span class="field-note">（勾选后上方正文可留空，此时 assistant 消息可省略）</span></label>
+    </div>
+
+    <!-- ============ 仅音色克隆：样本上传 / 录音 ============ -->
+    <div id="sampleSection" hidden>
+      <div class="field-title">克隆样本（仅支持 mp3 / wav，Base64 编码后不超过 10 MB）</div>
+      <div class="sample-actions">
+        <input type="file" id="fileInput" accept=".mp3,.wav,audio/mpeg,audio/mp3,audio/wav,audio/x-wav">
+        <button type="button" class="btn-ghost" id="recordBtn">开始录音</button>
+        <button type="button" class="btn-ghost danger" id="clearSampleBtn" hidden>清除样本</button>
+        <button type="button" class="btn-ghost" id="compressBtn" hidden>转码压缩（16kHz 单声道 WAV）</button>
+      </div>
+      <div class="record-status" id="recordStatus" hidden></div>
+      <div class="sample-info" id="sampleInfo" hidden></div>
+      <div class="warn-box" id="sampleWarn" hidden></div>
+      <p class="field-help">录音会自动转码为 16kHz 单声道 WAV；上传的 mp3 / wav 原样发送。若 Base64 超过 10 MB，可点「转码压缩」；压缩后仍超限时请截取约 4 分钟以内的片段。浏览器录音得到的是 webm，本页会先转成 wav 再生成 Data URL。</p>
+    </div>
+
+    <div class="actions">
+      <button type="button" class="btn-primary" id="generateBtn">生成语音</button>
+    </div>
+  </section>
+
+  <!-- ============ 请求 JSON 预览 ============ -->
+  <section class="card">
+    <div class="card-title-row">
+      <h2 class="card-title">请求 JSON 预览</h2>
+      <button type="button" class="btn-mini" id="regenPreviewBtn" title="按当前表单内容重新生成预览">从表单重新生成</button>
+    </div>
+    <label class="expert-toggle"><input type="checkbox" id="expertCheck"><span>专家模式：直接编辑此 JSON 并发送（用于复现报错等调试）</span></label>
+    <textarea id="previewArea" class="preview-area" readonly spellcheck="false" aria-label="请求 JSON 预览"></textarea>
+    <p class="preview-note">消息角色分工：<code>assistant</code> = 待合成正文（必填），<code>user</code> = 风格指令 / 音色描述。克隆样本的 Base64 以 <code>__VOICE_SAMPLE__</code> 占位显示，专家模式发送时会自动替换为完整内容。</p>
+  </section>
+
+  <!-- ============ 生成结果 ============ -->
+  <section class="card" id="resultCard" hidden>
+    <h2 class="card-title">生成结果</h2>
+    <div class="result-meta" id="resultMeta"></div>
+    <audio id="audioPlayer" controls preload="auto"></audio>
+    <p class="warn-box slim" id="pcmNote" hidden>pcm / pcm16 为裸音频流，浏览器无法直接播放，仅支持下载；流式拼接场景请使用 pcm16。</p>
+    <div class="actions">
+      <button type="button" class="btn-primary outline" id="downloadBtn">下载音频</button>
+    </div>
+  </section>
+
+  <!-- ============ 错误信息 ============ -->
+  <section class="card error-card" id="errorCard" hidden>
+    <h2 class="card-title">错误信息</h2>
+    <div class="error-status" id="errorStatus"></div>
+    <pre class="error-body" id="errorBody"></pre>
+    <div class="error-hints" id="errorHints"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="foot-card">
+    <h3>接口要点</h3>
+    <ul>
+      <li>MiMo TTS 复用 OpenAI 兼容的 Chat Completions 接口：<code>POST {MIMO_API_BASE_URL}/chat/completions</code>，请求头使用 <code>api-key</code>（不要用 <code>Authorization: Bearer</code>，Token Plan 的 tp- 开头 Key 在部分环境下用 Bearer 会 401）。</li>
+      <li>待合成正文必须放在 <code>assistant</code> 消息；<code>user</code> 消息只放风格指令或音色描述。正文放在 user 里会报 <code>messages must contain an assistant role for TTS model</code>。</li>
+      <li><code>audio.format</code> 支持 wav / mp3 / pcm / pcm16；<strong>不支持 opus 与 aac</strong>。pcm16 用于流式拼接。</li>
+      <li>voiceclone 与 voicedesign 的低延迟流式尚未真正上线（流式调用会降级为全部生成完后一次返回），本页统一走非流式调用。</li>
+    </ul>
+  </div>
+  <div class="foot-card">
+    <h3>本地与安全</h3>
+    <ul>
+      <li>API Key 只保存在服务端 <code>.env</code>，浏览器端代码与网络请求中均不出现密钥；修改 .env 后需重启 <code>node server.js</code>。</li>
+      <li>相同 payload（SHA-256）命中本地缓存 <code>.cache/tts/</code>，不再调用 MiMo API、不重复消耗额度；清空缓存可直接删除该目录。</li>
+      <li>健康检查 <code>GET /api/health</code>；代理入口 <code>POST /api/tts</code>（仅同源本地调用）。</li>
+      <li>参考：<a href="https://mimo.mi.com/docs/zh-CN/quick-start/usage-guide/audio/speech-synthesis-v2.5" target="_blank" rel="noopener">官方文档</a> · <a href="https://github.com/rholin33/mimotts" target="_blank" rel="noopener">社区零依赖测试台</a> · <a href="https://developer.cloud.tencent.cn/article/2730358" target="_blank" rel="noopener">PHP 实现参考</a></li>
+    </ul>
+  </div>
+</footer>
+
+<noscript><div class="noscript">本页面需要启用 JavaScript 才能使用。</div></noscript>
+<script src="app.js"></script>
+</body>
+</html>
