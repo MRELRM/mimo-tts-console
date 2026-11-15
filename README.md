@@ -16,7 +16,7 @@
 
 ### 方式一：便携发布包（推荐，无需安装 Node.js）
 
-从 Releases 下载 `mimo-tts-console-v1.0.0-win-x64-portable.zip`，解压后双击 **`start.bat`**：
+从 Releases 下载 `mimo-tts-console-v1.0.1-win-x64-portable.zip`，解压后双击 **`start.bat`**：
 
 1. 首次运行会自动从 `.env.example` 生成 `.env`，并在记事本中打开，填写 `MIMO_API_KEY=你的Key` 后保存并关闭记事本
 2. 服务自动启动，浏览器自动打开 `http://127.0.0.1:8787`
