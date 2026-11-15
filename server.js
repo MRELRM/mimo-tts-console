@@ -201,17 +201,32 @@ function validatePayload(p) {
   }
   const audio = p.audio;
   if (!audio || typeof audio !== 'object' || Array.isArray(audio)) return 'audio 必须是对象';
-  if (typeof audio.voice !== 'string' || audio.voice.length === 0) return 'audio.voice 必须是非空字符串';
-  if (p.model === 'mimo-v2.5-tts-voiceclone') {
+  // audio.voice 按模型分别校验（官方文档口径：
+  //   mimo-v2.5-tts          → 必填预置音色 ID；
+  //   voiceclone             → 必填音频样本 Data URL；
+  //   voicedesign            → 音色由 user 消息的描述文本决定，audio 中不应传 voice）
+  if (p.model === 'mimo-v2.5-tts') {
+    if (typeof audio.voice !== 'string' || audio.voice.length === 0) {
+      return 'mimo-v2.5-tts 的 audio.voice 必须是非空字符串（预置音色 ID，如 mimo_default / 冰糖 / Chloe）';
+    }
+  } else if (p.model === 'mimo-v2.5-tts-voiceclone') {
+    if (typeof audio.voice !== 'string' || audio.voice.length === 0) {
+      return 'voiceclone 的 audio.voice 必须是形如 data:audio/mpeg;base64,<BASE64> 的音频样本 Data URL（不能为空）';
+    }
     if (!/^data:[^;]+;base64,/i.test(audio.voice)) {
       return 'voiceclone 的 audio.voice 必须是形如 data:audio/mpeg;base64,<BASE64> 的音频样本 Data URL（不能填预置音色 ID）';
     }
     if (audio.voice.length > MAX_VOICE_CHARS) {
       return `音频样本 Base64 后为 ${(audio.voice.length / 1024 / 1024).toFixed(2)} MB，超过 10 MB 上限，请压缩转码或截取片段`;
     }
+  } else if (p.model === 'mimo-v2.5-tts-voicedesign' && audio.voice !== undefined) {
+    return 'voicedesign 模型不支持 audio.voice：音色由 user 消息中的音色描述文本决定，请从 audio 中删除 voice 字段';
   }
   if (audio.format !== undefined && typeof audio.format !== 'string') {
     return 'audio.format 必须是字符串（wav / mp3 / pcm / pcm16）';
+  }
+  if (audio.optimize_text_preview !== undefined && typeof audio.optimize_text_preview !== 'boolean') {
+    return 'audio.optimize_text_preview 必须是布尔值（true / false），仅 voicedesign 模型支持';
   }
   return null;
 }
