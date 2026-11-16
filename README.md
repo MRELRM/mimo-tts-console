@@ -159,5 +159,3 @@ mimo-tts-console/
 - [社区零依赖测试台 rholin33/mimotts](https://github.com/rholin33/mimotts)
 - [端点/参数踩坑记录 wwwzhouhui/skills_collection](https://github.com/wwwzhouhui/skills_collection)
 - [PHP 实现参考（腾讯云开发者社区）](https://developer.cloud.tencent.cn/article/2730358)
-
-> AI生成
